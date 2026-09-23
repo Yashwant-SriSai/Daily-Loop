@@ -1,7 +1,14 @@
-import { IconMark, IconBulb, IconFlask } from "./icons";
+import { IconMark, IconBulb, IconFlask, IconChart, IconGlobe, IconMask } from "./icons";
 import type { Edition } from "./types";
 import { DsaSection } from "./Interactive";
+
 import { getTodaysEdition } from "./getEdition";
+const categoryIcons: Record<string, React.ReactNode> = {
+  "TRADING": <IconChart />,
+  "ANIME & MANGA": <IconMask />,
+  "SOFTWARE DEV": <IconGlobe />,
+};
+
 
 export default async function Page() {
   const data: Edition = await getTodaysEdition();
@@ -17,19 +24,24 @@ export default async function Page() {
       ))}
 
       <div className="briefs">
-        {data.briefs.map((b) => (
-          <div className="story" key={b.headline}>
-            <div className="tag">{b.category}</div>
-            <p>{b.headline}</p>
-          </div>
-        ))}
-      </div>
+  {data.briefs.map((b) => (
+    <div className="story" key={b.headline}>
+      <div className="tag">{categoryIcons[b.category]} {b.category}</div>
+      <h3>{b.headline}</h3>
+      <p>{b.body}</p>
+    </div>
+  ))}
+</div>
 
-      <div className="eli5">
-        <div className="tag tag-orange"><IconBulb /> EXPLAIN LIKE I'M 5</div>
-        <p>{data.explainli5.title}</p>
-        <p>{data.explainli5.explanation}</p>
-      </div>
+     <div className="eli5">
+  <div className="tag tag-orange"><IconBulb /> EXPLAIN LIKE I'M 5</div>
+  <p>{data.explainli5.title}</p>
+  <p>{data.explainli5.explanation}</p>
+  <div className="eli5-deep">
+    <p className="eli5-deep-label">The real explanation</p>
+    <p>{data.explainli5.deep_dive}</p>
+  </div>
+</div>
 
       <div className="dsa">
         <div className="tag">DSA WARM-UP</div>

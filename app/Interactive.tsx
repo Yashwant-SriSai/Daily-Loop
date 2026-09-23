@@ -1,20 +1,29 @@
 "use client";
-import type { Dsa } from "./types";
 
 import { useState } from "react";
+import type { Dsa, DsaProblem } from "./types";
 
-export function DsaReveal({ approach }: { approach: string }) {
+export function DsaReveal({ problem }: { problem: DsaProblem }) {
   const [show, setShow] = useState(false);
 
   return (
     <>
       <button onClick={() => setShow(!show)}>
-        {show ? "Hide approach" : "Reveal approach"}
+        {show ? "Hide approach" : "Show approach"}
       </button>
-      {show && <p>{approach}</p>}
+      {show && (
+        <div className="dsa-reveal">
+          <p>{problem.explanation}</p>
+          <p className="dsa-complexity">
+            Time: {problem.time_complexity} &nbsp;&middot;&nbsp; Space: {problem.space_complexity}
+          </p>
+          <pre className="code-block"><code>{problem.python_solution}</code></pre>
+        </div>
+      )}
     </>
   );
 }
+
 export function DsaSection({ dsa }: { dsa: Dsa }) {
   const [level, setLevel] = useState<"basic" | "advanced">("basic");
   const problem = dsa[level];
@@ -38,8 +47,7 @@ export function DsaSection({ dsa }: { dsa: Dsa }) {
       <p className="dsa-difficulty">{problem.difficulty}</p>
       <p>{problem.title}</p>
       <p>{problem.prompt}</p>
-      <DsaReveal approach={problem.explanation} />
-      <pre className="code-block"><code>{problem.python_solution}</code></pre>
+      <DsaReveal problem={problem} />
     </div>
   );
 }

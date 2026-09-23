@@ -8,9 +8,13 @@ import time
 import xml.etree.ElementTree as ET
 import requests
 
-from openai import OpenAI, RateLimitError
+from openai import OpenAI, RateLimitError, APIStatusError
 from dotenv import load_dotenv
 load_dotenv()
+import sys
+import io
+
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 FEEDS = {
     "SOFTWARE DEV": ["https://news.ycombinator.com/rss"],
@@ -52,6 +56,11 @@ def call_model(messages, max_retries=5, max_tokens=None):
             wait = 3 * attempt
             print(f"  [rate limit] waiting {wait}s before retry {attempt}/{max_retries}...")
             time.sleep(wait)
+        except APIStatusError as e:
+            if e.status_code == 413:
+                print(f"  [error] request too large even after retry — reduce max_tokens (was {max_tokens})")
+                raise
+            raise
     raise RuntimeError("Rate limit persisted after all retries")
 
 # ---------------------------------------------------------------------------
@@ -122,15 +131,19 @@ def synthesize_topic(topic, headlines):
             {
                 "role": "system",
                 "content": (
-                    "You are a wire-service news editor. Given several raw headlines "
-                    "and snippets on one topic, write ONE reconciled brief in your own "
-                    "words. Never invent facts not present in the source material. "
-                    'Respond ONLY with JSON: {"headline": "...", "body": "4-5 sentences"}'
+                                   "You are a wire-service news editor. Given several raw headlines "
+                    "and snippets on one topic, write a full, substantial summary — "
+                    "NOT a headline, NOT a one-liner. Write a proper news summary of "
+                    "12-15 full sentences that explains what actually happened, why it "
+                    "matters, and any relevant context, as if briefing someone who "
+                    "hasn't seen any of the source material. Never invent facts not "
+                    "present in the source material. "
+                    'Respond ONLY with JSON: {"headline": "a short headline, under 12 words", "body": "the 6-8 sentence summary"}'
                 ),
             },
             {"role": "user", "content": f"Topic: {topic}\n\nSources:\n{source_text}"},
         ],
-        max_tokens=800,
+        max_tokens=2000,
     )
 
     try:
@@ -171,15 +184,21 @@ def write_eli5():
             {
                 "role": "system",
                 "content": (
-                    "Pick one interesting, non-obvious technical concept related to "
-                    "AI, software, boxing, trading, or anime/manga. Explain it as a "
-                    "simple analogy a 5-year-old could follow. "
-                    'Respond ONLY with JSON: {"title": "a short question", "explanation": "the analogy, 2-3 sentences"}'
+                   "Pick one interesting, non-obvious technical concept related to "
+                    "AI, software, boxing, trading, or anime/manga. Explain it in TWO "
+                    "parts, both substantial — not vague, not just a one-line analogy:\n\n"
+                    "1. A simple analogy a 5-year-old could follow, 2-3 sentences, "
+                    "concrete and vivid.\n"
+                    "2. A real, deeper explanation for an adult reader — 5-7 sentences "
+                    "covering how it actually works, why it matters, and one concrete "
+                    "example or real-world application. Use the real technical terms "
+                    "here, don't oversimplify this part.\n\n"
+                    'Respond ONLY with JSON: {"title": "a short question", "explanation": "part 1, the simple analogy", "deep_dive": "part 2, the real explanation, 5-7 sentences"}'
                 ),
             },
             {"role": "user", "content": "Generate today's topic."},
         ],
-        max_tokens=1200,
+        max_tokens=2000,
     )
     try:
         return json.loads(text)
@@ -187,28 +206,66 @@ def write_eli5():
         print(f"  [warn] could not parse ELI5 output: {text[:200]}")
         return {"title": "N/A", "explanation": "Could not generate today's ELI5 topic."}
 
-
+    # Guard against the model omitting a key even when JSON parses fine
+    result.setdefault("title", "N/A")
+    result.setdefault("explanation", "")
+    result.setdefault("deep_dive", "")
+    return result
 def write_paper_summary(paper):
     text = call_model(
         [
             {
                 "role": "system",
                 "content": (
-                    "Summarize this research paper abstract in plain language, "
-                    "2-3 sentences, for a non-expert reader. Stay strictly grounded "
-                    "in the abstract given — do not invent findings. "
-                    'Respond ONLY with JSON: {"plain_summary": "..."}'
+                    "Summarize this research paper's abstract in plain language for a "
+                    "non-expert reader.\n\n"
+                    "STRICT REQUIREMENT: your \"plain_summary\" field must be AT LEAST "
+                    "150 words. A short answer is a FAILURE. Write in this structure:\n"
+                    "1. What problem does this paper address? (2 sentences)\n"
+                    "2. What approach or method does it use? (2 sentences)\n"
+                    "3. What is the key finding or result? (2 sentences)\n"
+                    "4. Why does this matter, in practical terms? (2 sentences)\n\n"
+                    "That is 8 sentences minimum. Stay strictly grounded in the "
+                    "abstract given — do not invent findings not stated in it.\n\n"
+                    'Respond ONLY with JSON: {"plain_summary": "your full 8+ sentence answer here"}'
                 ),
             },
             {"role": "user", "content": f"Title: {paper['title']}\n\nAbstract: {paper['summary']}"},
         ],
-        max_tokens=500,
+        max_tokens=2500,
     )
     try:
-        return json.loads(text)["plain_summary"]
+        result = json.loads(text)["plain_summary"]
     except (json.JSONDecodeError, KeyError):
+        print(f"  [warn] could not parse paper summary: {text[:200]}")
         return paper["summary"][:300]
 
+    word_count = len(result.split())
+    if word_count < 100:
+        print(f"  [warn] paper summary too short ({word_count} words), retrying once with a stronger nudge")
+        text2 = call_model(
+            [
+                {
+                    "role": "system",
+                    "content": (
+                        "Write a DETAILED plain-language summary of this abstract, "
+                        "at least 150 words, covering the problem, method, result, "
+                        "and significance. Do not write a short answer. "
+                        'Respond ONLY with JSON: {"plain_summary": "..."}'
+                    ),
+                },
+                {"role": "user", "content": f"Title: {paper['title']}\n\nAbstract: {paper['summary']}"},
+            ],
+            max_tokens=2500,
+        )
+        try:
+            retry_result = json.loads(text2)["plain_summary"]
+            if len(retry_result.split()) > word_count:
+                return retry_result
+        except (json.JSONDecodeError, KeyError):
+            pass
+
+    return result
 
 # ---------------------------------------------------------------------------
 # DSA generation + verification
@@ -216,17 +273,23 @@ def write_paper_summary(paper):
 def generate_dsa(difficulty="basic"):
     level = "an Easy or Medium" if difficulty == "basic" else "a Hard-level"
     system = (
-        f"You are a LeetCode-style problem setter. Create {level} coding problem. "
+         f"You are a LeetCode-style problem setter. Create {level} coding problem. "
         "Provide a complete, correct Python solution as a single function — keep the "
         "code compact, no comments, no docstring. Provide exactly 2 test cases as "
-        "literal Python values (not strings of code). Keep the explanation to 1-2 "
-        "short sentences. "
+        "literal Python values (not strings of code). "
+        "Write a REAL, substantial explanation of the approach — 4-6 sentences "
+        "covering the core idea, why it works, and any key insight or trick used. "
+        "Do not write a vague one-liner. "
+        "Also state the exact time complexity and space complexity, each with a "
+        "one-sentence justification of why. "
         'Respond ONLY with JSON, no other text: {'
         '"title": "...", "difficulty": "Easy|Medium|Hard", '
-        '"prompt": "problem description, 1-2 sentences", '
+        '"prompt": "problem description, 2-3 sentences", '
         '"function_name": "the function name used in solution", '
         '"python_solution": "full function code as a string, def included", '
-        '"explanation": "1-2 sentences on the approach", '
+        '"explanation": "4-6 sentences on the approach and why it works", '
+        '"time_complexity": "e.g. O(n log n) — reason in one sentence", '
+        '"space_complexity": "e.g. O(n) — reason in one sentence", '
         '"test_cases": [{"args": [<arg1>, <arg2>], "expected": <output>}]'
         '}'
     )
@@ -235,7 +298,7 @@ def generate_dsa(difficulty="basic"):
             {"role": "system", "content": system},
             {"role": "user", "content": "Generate one."},
         ],
-        max_tokens=8000,
+        max_tokens=5000,
     )
 
     if not text:
@@ -302,6 +365,10 @@ if __name__ == "__main__":
             print(f"  -> {brief['headline']}")
         else:
             print(f"  -> skipped (no usable brief)")
+    print("\n--- Synthesis results ---")
+    for topic in FEEDS:
+          status = "OK" if topic in all_briefs else "SKIPPED"
+          print(f"  {topic}: {status}")
 
     lead_topic = max(all_briefs, key=lambda t: topic_headline_counts[t])
     print(f"\nLead topic chosen: {lead_topic}")

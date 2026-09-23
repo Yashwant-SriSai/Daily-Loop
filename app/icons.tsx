@@ -19,6 +19,33 @@ export function IconBulb() {
 
   );
 }
+export function IconChart() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path className="draw" d="M4 19h16" pathLength="1" />
+      <path className="draw" d="M6 15l4-5 3 3 5-7" pathLength="1" />
+    </svg>
+  );
+}
+
+export function IconMask() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path className="draw" d="M4 9c0-3 3.5-5 8-5s8 2 8 5v3c0 4-3.5 7-8 7s-8-3-8-7V9Z" pathLength="1" />
+      <path className="draw" d="M9 11c0 .8-.5 1.5-1.5 1.5S6 11.8 6 11" pathLength="1" />
+      <path className="draw" d="M18 11c0 .8-.5 1.5-1.5 1.5S15 11.8 15 11" pathLength="1" />
+    </svg>
+  );
+}
+
+export function IconGlobe() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <circle className="draw" cx="12" cy="12" r="8" pathLength="1" />
+      <path className="draw" d="M4 12h16M12 4c2.5 2.5 2.5 13.5 0 16M12 4c-2.5 2.5-2.5 13.5 0 16" pathLength="1" />
+    </svg>
+  );
+}
 export function IconFlask() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">

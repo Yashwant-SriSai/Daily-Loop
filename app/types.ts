@@ -15,6 +15,7 @@ export type Brief = {
 export type Explainli5 = {
   title: string;
   explanation: string;
+  deep_dive: string;
 };
 
 export type DsaProblem = {
@@ -24,6 +25,8 @@ export type DsaProblem = {
   function_name: string;
   python_solution: string;
   explanation: string;
+  time_complexity: string;
+  space_complexity: string;
   test_cases: { args: unknown[]; expected: unknown }[];
 };
 
