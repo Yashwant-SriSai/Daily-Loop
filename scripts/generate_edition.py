@@ -24,6 +24,7 @@ FEEDS = {
     ],
     "ANIME & MANGA": ["https://www.animenewsnetwork.com/all/rss.xml"],
     "TRADING": ["https://feeds.marketwatch.com/marketwatch/topstories/"],
+    "TRENDING TECH": ["https://dev.to/feed/tag/programming"],
 }
 
 client = OpenAI(
@@ -52,17 +53,16 @@ def call_model(messages, max_retries=5, max_tokens=None):
                 print(f"  [debug] response was CUT OFF (finish_reason=length, max_tokens={max_tokens})")
 
             return text.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
-        except RateLimitError:
-            wait = 3 * attempt
-            print(f"  [rate limit] waiting {wait}s before retry {attempt}/{max_retries}...")
-            time.sleep(wait)
-        except APIStatusError as e:
-            if e.status_code == 413:
-                print(f"  [error] request too large even after retry — reduce max_tokens (was {max_tokens})")
-                raise
-            raise
-    raise RuntimeError("Rate limit persisted after all retries")
-
+        except RateLimitError as e:
+                msg = str(e)
+                if "tokens per day" in msg or "TPD" in msg:
+                    print(f"  [rate limit] DAILY token limit hit — retrying won't help today.")
+                    print(f"  {msg}")
+                    raise RuntimeError("Daily token limit reached. Try again after it resets.")
+                print(f"  [rate limit] {e}")
+                wait = 15 * attempt
+                print(f"  [rate limit] waiting {wait}s before retry {attempt}/{max_retries}...")
+                time.sleep(wait)
 # ---------------------------------------------------------------------------
 # RSS fetching
 # ---------------------------------------------------------------------------
@@ -134,11 +134,11 @@ def synthesize_topic(topic, headlines):
                                    "You are a wire-service news editor. Given several raw headlines "
                     "and snippets on one topic, write a full, substantial summary — "
                     "NOT a headline, NOT a one-liner. Write a proper news summary of "
-                    "12-15 full sentences that explains what actually happened, why it "
+                    "8-10full sentences that explains what actually happened, why it "
                     "matters, and any relevant context, as if briefing someone who "
                     "hasn't seen any of the source material. Never invent facts not "
                     "present in the source material. "
-                    'Respond ONLY with JSON: {"headline": "a short headline, under 12 words", "body": "the 6-8 sentence summary"}'
+                    'Respond ONLY with JSON: {"headline": "a short headline, under 12 words", "body": "the 8-10 sentence summary"}'
                 ),
             },
             {"role": "user", "content": f"Topic: {topic}\n\nSources:\n{source_text}"},
@@ -178,6 +178,7 @@ def write_lead_story(topic, brief):
         return [brief["body"]]
 
 
+    
 def write_eli5():
     text = call_model(
         [
@@ -356,6 +357,7 @@ if __name__ == "__main__":
 
     for topic, urls in FEEDS.items():
         headlines = fetch_headlines(urls)
+      
         topic_headline_counts[topic] = len(headlines)
         print(f"\nFetched {len(headlines)} headlines for {topic}")
 
@@ -365,6 +367,7 @@ if __name__ == "__main__":
             print(f"  -> {brief['headline']}")
         else:
             print(f"  -> skipped (no usable brief)")
+        time.sleep(3) 
     print("\n--- Synthesis results ---")
     for topic in FEEDS:
           status = "OK" if topic in all_briefs else "SKIPPED"
