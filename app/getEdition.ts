@@ -4,32 +4,40 @@ import path from "path";
 import type { Edition } from "./types";
 
 const EDITION_PATH = path.join(process.cwd(), "data", "edition.json");
+const RETRY_COOLDOWN_MS = 30 * 60 * 1000; // don't retry a failed run for 30 min
 
-function readEditionFile(): (Edition & { generated_date: string }) | null {
+let lastFailedAt = 0;
+
+function readEditionFile(): Edition | null {
   try {
-    const raw = readFileSync(EDITION_PATH, "utf-8");
-    return JSON.parse(raw);
+    return JSON.parse(readFileSync(EDITION_PATH, "utf-8"));
   } catch {
     return null;
   }
 }
 
 export async function getTodaysEdition(): Promise<Edition> {
-  const today = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+  const today = new Date().toISOString().slice(0, 10);
   const existing = readEditionFile();
 
-  if (existing && existing.generated_date === today) {
-    console.log("Edition is already fresh for today, skipping regeneration.");
-    return existing;
+  if (existing && existing.generated_date === today) return existing;
+
+  // A recent run failed: serve the old edition instead of burning tokens again.
+  if (existing && Date.now() - lastFailedAt < RETRY_COOLDOWN_MS) return existing;
+
+  console.log("Edition missing or stale, regenerating via Python...");
+  try {
+    execSync("python3 scripts/generate_edition.py", {
+      cwd: process.cwd(),
+      stdio: "inherit",
+      timeout: 5 * 60 * 1000,
+    });
+  } catch (err) {
+    console.error("Regeneration failed:", err);
+    lastFailedAt = Date.now();
+    if (existing) return existing;
+    throw err;
   }
 
-  console.log("Edition missing or stale — regenerating via Python...");
-  execSync("python scripts/generate_edition.py", {
-    cwd: process.cwd(),
-    stdio: "inherit", // shows Python's print() output in your terminal
-  });
-
-  const fresh = readEditionFile();
-  if (!fresh) throw new Error("Regeneration ran but edition.json is still missing/invalid.");
-  return fresh;
+  return readEditionFile() ?? existing!;
 }
