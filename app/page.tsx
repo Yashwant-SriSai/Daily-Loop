@@ -1,7 +1,7 @@
 import { IconMark, IconBulb, IconFlask, IconChart, IconGlobe, IconMask } from "./icons";
 import type { Edition } from "./types";
-import { DsaSection } from "./Interactive";
-
+import { DsaSection, BriefCard } from "./Interactive";
+export const dynamic = "force-dynamic";
 import { getTodaysEdition } from "./getEdition";
 const categoryIcons: Record<string, React.ReactNode> = {
   "TRADING": <IconChart />,
@@ -25,16 +25,21 @@ export default async function Page() {
 
       <div className="briefs">
   {data.briefs.map((b) => (
-    <div className="story" key={b.headline}>
-      <div className="tag">{categoryIcons[b.category]} {b.category}</div>
-      <h3>{b.headline}</h3>
-      <p>{b.body}</p>
-    </div>
+    <BriefCard
+      key={b.headline}
+      category={b.category}
+      headline={b.headline}
+      body={b.body}
+      icon={categoryIcons[b.category]}
+    />
   ))}
 </div>
 
-     <div className="eli5">
+    <div className="eli5">
   <div className="tag tag-orange"><IconBulb /> EXPLAIN LIKE I'M 5</div>
+  {data.explainli5.based_on && (
+    <p className="eli5-source">From today's news: {data.explainli5.based_on}</p>
+  )}
   <p>{data.explainli5.title}</p>
   <p>{data.explainli5.explanation}</p>
   <div className="eli5-deep">

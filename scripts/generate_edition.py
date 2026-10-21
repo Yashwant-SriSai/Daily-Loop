@@ -177,41 +177,45 @@ def write_lead_story(topic, brief):
     except (json.JSONDecodeError, KeyError):
         return [brief["body"]]
 
-
-    
-def write_eli5():
+def write_eli5(all_briefs):
+    stories = "\n\n".join(
+        f"[{topic}] {b['headline']}: {b['body'][:600]}"
+        for topic, b in all_briefs.items()
+    )
     text = call_model(
         [
             {
                 "role": "system",
                 "content": (
-                   "Pick one interesting, non-obvious technical concept related to "
-                    "AI, software, boxing, trading, or anime/manga. Explain it in TWO "
-                    "parts, both substantial — not vague, not just a one-line analogy:\n\n"
-                    "1. A simple analogy a 5-year-old could follow, 2-3 sentences, "
-                    "concrete and vivid.\n"
-                    "2. A real, deeper explanation for an adult reader — 5-7 sentences "
-                    "covering how it actually works, why it matters, and one concrete "
-                    "example or real-world application. Use the real technical terms "
-                    "here, don't oversimplify this part.\n\n"
-                    'Respond ONLY with JSON: {"title": "a short question", "explanation": "part 1, the simple analogy", "deep_dive": "part 2, the real explanation, 5-7 sentences"}'
+                    "You are given today's news summaries. Pick the ONE story that is "
+                    "hardest for an ordinary person to understand (technical, financial, "
+                    "or full of jargon). Explain THAT story in two parts, using only "
+                    "facts present in the summaries:\n"
+                    "1. explanation: a vivid analogy a 5-year-old could follow, 3-4 sentences, "
+                    "about what actually happened in the story.\n"
+                    "2. deep_dive: 6-8 sentences for an adult covering what happened, the "
+                    "key terms involved, why it matters, and what could happen next.\n"
+                    'Respond ONLY with JSON: {"based_on": "headline of the story you chose", '
+                    '"title": "a short question about the story", '
+                    '"explanation": "...", "deep_dive": "..."}'
                 ),
             },
-            {"role": "user", "content": "Generate today's topic."},
+            {"role": "user", "content": stories},
         ],
         max_tokens=2000,
     )
     try:
-        return json.loads(text)
+        result = json.loads(text)
     except json.JSONDecodeError:
         print(f"  [warn] could not parse ELI5 output: {text[:200]}")
-        return {"title": "N/A", "explanation": "Could not generate today's ELI5 topic."}
+        return {"based_on": "", "title": "N/A", "explanation": "Could not generate today's ELI5.", "deep_dive": ""}
 
-    # Guard against the model omitting a key even when JSON parses fine
+    result.setdefault("based_on", "")
     result.setdefault("title", "N/A")
     result.setdefault("explanation", "")
     result.setdefault("deep_dive", "")
     return result
+
 def write_paper_summary(paper):
     text = call_model(
         [

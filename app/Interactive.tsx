@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import type { Dsa, DsaProblem } from "./types";
 
 export function DsaReveal({ problem }: { problem: DsaProblem }) {
@@ -48,6 +48,31 @@ export function DsaSection({ dsa }: { dsa: Dsa }) {
       <p>{problem.title}</p>
       <p>{problem.prompt}</p>
       <DsaReveal problem={problem} />
+    </div>
+  );
+}
+export function BriefCard({
+  category, headline, body, icon,
+}: { category: string; headline: string; body: string; icon: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  const ref = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (el && !open) setOverflows(el.scrollHeight > el.clientHeight + 1);
+  }, [body, open]);
+
+  return (
+    <div className="story">
+      <div className="tag">{icon} {category}</div>
+      <h3>{headline}</h3>
+      <p ref={ref} className={`story-body ${open ? "" : "clamped"}`}>{body}</p>
+      {(overflows || open) && (
+        <button className="read-toggle" onClick={() => setOpen(!open)}>
+          {open ? "Read less" : "Read more"}
+        </button>
+      )}
     </div>
   );
 }

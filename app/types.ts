@@ -12,11 +12,7 @@ export type Brief = {
   body: string;
 };
 
-export type Explainli5 = {
-  title: string;
-  explanation: string;
-  deep_dive: string;
-};
+
 
 export type DsaProblem = {
   title: string;
@@ -49,4 +45,11 @@ export type Edition = {
   explainli5: Explainli5;
   dsa: Dsa;
   paper: ResearchPaper | null;
+};
+
+export type Explainli5 = {
+  based_on?: string;
+  title: string;
+  explanation: string;
+  deep_dive: string;
 };

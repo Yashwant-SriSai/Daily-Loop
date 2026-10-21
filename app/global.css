@@ -42,6 +42,13 @@ h1{
   gap: 8px;
   margin-bottom: 10px;
 }
+
+
+.eli5-source {
+  font-family: var(--font-plex-mono), monospace;
+  font-size: 11px;
+  color: var(--ink-soft);
+}
 .eli5-deep {
   margin-top: 14px;
   padding-top: 14px;
@@ -137,6 +144,10 @@ h1{
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 28px;
+  align-items: start;
+}
+@media (max-width: 720px) {
+  .briefs { grid-template-columns: 1fr; }
 }
 .tag-orange {
   color: var(--orange);
@@ -154,6 +165,34 @@ h1{
   padding-bottom: 16px;
   margin-bottom: 16px;
   border-bottom: 1px solid var(--rule);
+}
+.story h3 {
+  line-height: 1.3;
+  min-height: 3.9em;              /* room for 3 lines, so headlines align */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.story-body {
+  line-height: 1.55;
+  min-height: calc(7 * 1.55em);   /* every card is at least 7 lines tall */
+}
+.story-body.clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 7;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.read-toggle {
+  font-family: var(--font-plex-mono), monospace;
+  font-size: 11px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--ink);
+  color: var(--ink);
+  padding: 0;
+  cursor: pointer;
 }
 .draw {
   stroke-dasharray: 1;
