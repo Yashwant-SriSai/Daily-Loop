@@ -1,7 +1,7 @@
 import feedparser
 from pathlib import Path
 import urllib.parse
-from datetime import date
+from datetime import date, datetime, timezone, timedelta
 import os
 import json
 import time
@@ -63,6 +63,7 @@ def call_model(messages, max_retries=5, max_tokens=None):
                 wait = 15 * attempt
                 print(f"  [rate limit] waiting {wait}s before retry {attempt}/{max_retries}...")
                 time.sleep(wait)
+    raise RuntimeError("Rate limit persisted after all retries")
 # ---------------------------------------------------------------------------
 # RSS fetching
 # ---------------------------------------------------------------------------
@@ -139,6 +140,8 @@ def synthesize_topic(topic, headlines):
                     "hasn't seen any of the source material. Never invent facts not "
                     "present in the source material. "
                     'Respond ONLY with JSON: {"headline": "a short headline, under 12 words", "body": "the 8-10 sentence summary"}'
+                    "Attribute each fact only to the company or person named for it in the "
+"source text; never combine details from different headlines into one claim. "
                 ),
             },
             {"role": "user", "content": f"Topic: {topic}\n\nSources:\n{source_text}"},
@@ -381,8 +384,8 @@ if __name__ == "__main__":
     print(f"\nLead topic chosen: {lead_topic}")
     paragraphs = write_lead_story(lead_topic, all_briefs[lead_topic])
 
-    print("\nGenerating ELI5...")
-    eli5 = write_eli5()
+    print("\nGenerating ELI5...") 
+    eli5 = write_eli5(all_briefs)
 
     print("\nGenerating DSA problems...")
     dsa_basic = get_verified_dsa(difficulty="basic")
@@ -405,7 +408,7 @@ if __name__ == "__main__":
     ]
 
     edition = {
-        "generated_date": str(date.today()),
+        "generated_date": datetime.now(timezone(timedelta(hours=5, minutes=30))).strftime("%Y-%m-%d"),
 
         "lead": {
             "topic": lead_topic,
